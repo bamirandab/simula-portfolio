@@ -1,30 +1,42 @@
+fig.path = 'C:/Users/bryan/OneDrive - Universidad Nacional de Colombia/MAESTRIA/TESIS/DOCUMENTO FINAL/figs'
+setwd('C:/Users/bryan/OneDrive - Universidad Nacional de Colombia/MAESTRIA/TESIS/DOCUMENTO FINAL/')
 
-library(gamlss)
-library(Rlab)
+library(truncdist)
 library(markovchain)
+library(ggplot2)
+library(ggpubr)
+library(egg)
+library(xtable)
 
-#ESCRIBIR LA TESIS EN TIPO BOOK
-#UTILIZAR EL ESTILO DE BIBLIOGRAFIA HARVARD
+#TAMAÑO DE MUESTRA
 
-N = 100000   #TENTATIVO
+N = 100000   
 
 ###IDENTIFICADOR
 id = 1:N
 
-## CLUSTERES
+## CLUSTERS
 a=0.5
-b=0.4
+b=0.3
 c=1-a-b
 pesos = c(a,b,c)
+
+
+print.fig <-function(plot,path,name,w,h){
+  path.name <- paste(path,name,sep="/")
+  png(path.name,width = w, height = h)
+  print(plot)
+  dev.off()
+}
 
 clst <- function(x, a = pesos[1],b = pesos[2]){
   
   if (x <= a) {
-    temp = "1" #MYPIMES
+    temp = "1" #Riesgo 1
   }else if( (x > a) & (x <= a + b) ){
-    temp = "2" #MEDIANAS
+    temp = "2" #Riesgo 2
   }else if( x > a + b){
-    temp = "3" #GRANDES
+    temp = "3" #Riesgo 3
   }
   return(temp)
 
@@ -34,48 +46,96 @@ create_cluster <- function(N){
   
   x = cbind ( runif(N) )
 
-return( as.factor(apply(x, 1, clst)) )  
+return( factor(apply(x, 1, clst)) )  
 }
 
 
 segmento = create_cluster(N)
-# Se debe hacer regresiones por cada cluster
 
-create_variable<-function(x,N,factores){
+
+
+
+pp_beta <- function(segmento,betas,min,max){
+  seg <- as.integer(segmento)
+  a <- betas[seg,1]
+  b <- betas[seg,2]
   
+  q.min <- pbeta(min,a,b,lower.tail=TRUE)
+  q.max <- pbeta(max,a,b,lower.tail=TRUE)
   
-  X.1 <- rgamma(N,shape=2,scale=2.0) 
-  X.2 <- rgamma(N,shape=7,scale=2.0) 
-  X.3 <- rgamma(N,shape=3,scale=2.0) 
+  r <- truncdist::rtrunc(1,"beta",a=q.min,b=q.max,shape1=a,shape2=b)
+  return(r)
   
-  temp <- ((x == 1) * X.1 * factores[1]) + ((x == 2) * X.2 * factores[2]) + ((x == 3) * X.3 * factores[3])
+}
 
-  return(temp)
-  }
+beta.qtl <- function(N,a,b,min,max){
+  q.min <- pbeta(min,a,b,lower.tail=TRUE)
+  q.max <- pbeta(max,a,b,lower.tail=TRUE)
+  
+  r <- runif(N,q.min,q.max)
+  
+  return(qbeta(r,a,b))
+  
+}
 
-factores <- c(10000,60000,200000)
-factores
 
-activos <- create_variable(segmento,N,factores)
-pp_pasivos <- apply( cbind(rbeta(N,5,4),0.8),1, min )
-pp_ebitda <- apply( cbind(rbeta(N,1.5,5),0.4),1, min )
+k=300000
+
+activos <- rgamma(N,shape=2,rate=2/k)
+
+activos.D = density(activos)
+
+beta.pasivos <- matrix(c(2,6,0.2,4,6,0.2,9,6,0.2),byrow=T,nrow=3)
+
+pp_pasivos <- sapply(segmento,function(x) pp_beta(x,betas = beta.pasivos,min=0.1,max = 0.8))
+
 pasivos <- activos * pp_pasivos
 patrimonio <- activos - pasivos
-ebitda <- pp_ebitda * (patrimonio)
 
+pasivos.df <- data.frame(x=density(pp_pasivos)$x,y=density(pp_pasivos)$y,
+                         y.1=density(rbeta(N,2,6))$y,x.1=density(rbeta(N,2,6))$x,
+                         y.2=density(rbeta(N,4,6))$y,x.2=density(rbeta(N,4,6))$x,
+                         y.3=density(rbeta(N,9,6))$y,x.3=density(rbeta(N,9,6))$x)
+
+
+beta.ebitda <- matrix(c(2,5,0.3,1.5,5,0.3,1,5,0.3),byrow=T,nrow=3)
+
+pp_ebitda <- sapply(segmento,function(x) pp_beta(x,betas=beta.ebitda,min=0.01,max=0.3))
+
+ebitda.df <- data.frame(x=density(pp_ebitda)$x,y=density(pp_ebitda)$y,
+                         y.1=density(rbeta(N,2,5))$y,x.1=density(rbeta(N,2,5))$x,
+                         y.2=density(rbeta(N,1.5,5))$y,x.2=density(rbeta(N,1.5,5))$x,
+                         y.3=density(rbeta(N,1,5))$y,x.3=density(rbeta(N,1,5))$x)
+
+
+ebitda <- pp_ebitda * (patrimonio)
 n.deuda <- pasivos / patrimonio
-hist(n.deuda)
 roa <- ebitda / activos
 roe <- ebitda / patrimonio
 
-rates = data.frame("1" = seq(0.014,0.018,by=0.001), #MYPYMES
-                   "2" = seq(0.011,0.015,by=0.001), #MEDIANAS
-                   "3" = seq(0.008,0.012,by=0.001)) #GRANDES
+data.ef = data.frame("activos"=activos, "pasivos" = pasivos, "patrimonio"=patrimonio,
+                     "nivel de deuda" = n.deuda,"roa"=roa,"roe"=roe)
+write.csv(data.ef,"estados_financieros.csv",row.names = FALSE)
 
-pp_exposicion <- rbeta(N,4,2)
+data.ef = read.csv("estados_financieros.csv")
 
+
+beta.exposicion <- matrix(c(6,4,0.8,4,4,0.8,2,4,0.8),byrow=T,nrow=3)
+pp_exposicion <- sapply(segmento,function(x) pp_beta(x,betas=beta.exposicion,min = 0.2,max=0.8))
 exposicion_init = pasivos * pp_exposicion
-p_pago=c(0.18,0.12,0.05)
+
+exposicion.df <- data.frame(x=density(pp_exposicion)$x,y=density(pp_exposicion)$y,
+                         y.1=density(rbeta(N,6,4))$y,x.1=density(rbeta(N,6,4))$x,
+                         y.2=density(rbeta(N,4,4))$y,x.2=density(rbeta(N,4,4))$x,
+                         y.3=density(rbeta(N,2,4))$y,x.3=density(rbeta(N,2,4))$x)
+
+
+
+rates = data.frame("X3" = seq(0.014,0.018,by=0.001), #
+                   "X2" = seq(0.011,0.015,by=0.001), #
+                   "X1" = seq(0.008,0.012,by=0.001)) #
+rates.i = sapply(segmento,function(x) sample(rates[,paste("X",x,sep="")],1))
+
 
 pago <- function(x,rate,n){
   
@@ -86,55 +146,61 @@ pago <- function(x,rate,n){
 
 plazos <- seq(12,60,by=12)
 
+plazos.i <- sample(plazos,N,replace = T)
+hist(plazos.i)
+
 #Markov-Chain de dos estados 0 = Pago y 1 = No pago
 States <- c("0","1")
-pagoMatrix <- matrix(data = c(0.9, 0.1, 0.65, 0.35), byrow = T, nrow = 2,
-                        dimnames = list(States, States))
-mcPagoo <- new("markovchain", states = States, byrow = T,
-                  transitionMatrix = pagoMatrix, name = "pago")
+
+P01.A <- c(0.05,0.2)
+P01.B <- c(0.1,0.3)
+P01.M <- c(0.2,0.4)
+
+data.B = c( 1 - P01.A[1], P01.A[1], 1 - P01.A[2], P01.A[2]) # nivel de endeudamiento <= 0.5  BUENO
+data.A = c( 1 - P01.B[1], P01.B[1], 1 - P01.B[2], P01.B[2]) # nivel de endeudamiento e (0.5,1] ACEPTABLE
+data.M = c( 1 - P01.M[1], P01.M[1], 1 - P01.M[2], P01.M[2]) # nivel de endeudamiento > 1 MALO
 
 
-# #ajustar cambio de probabilidad de impago con una cadena de markov
-# rbern_acum <- function(n,p,lambda = 0.01){
-#   x = double(n)
-#   p_acum = p
-#   
-#   for(j in 1:n){
-#     if(j == 1){
-#       x[j] <- Rlab::rbern(1,p)
-#     }else{
-#       
-#       if(x[(j-1)]==1){
-#         p_acum = p_acum + lambda
-#         p_final = ifelse(p_acum>1,1,p_acum)
-#         x[j] <- Rlab::rbern(1,p_final)
-#       }else{
-#         p_final = ifelse(p_acum>1,1,p_acum)
-#         x[j] <- Rlab::rbern(1,p_final)
-#       }
-#     }
-#   }
-#   
-#   return(list(x,p_final))
-# }
+matrix.pago <- function(x){
+  require(markovchain)
+  if(x <0.6){
+    
+    pagoMatrix <- matrix(data = data.B , byrow = T, nrow = 2,
+                         dimnames = list(States, States))
+    mcPago <- new("markovchain", states = States, byrow = T,
+                   transitionMatrix = pagoMatrix, name = "pago")
+  }else if(x<1){
+    pagoMatrix <- matrix(data = data.A , byrow = T, nrow = 2,
+                         dimnames = list(States, States))
+    mcPago <- new("markovchain", states = States, byrow = T,
+                   transitionMatrix = pagoMatrix, name = "pago")
+  }else{
+    pagoMatrix <- matrix(data = data.M , byrow = T, nrow = 2,
+                         dimnames = list(States, States))
+    mcPago <- new("markovchain", states = States, byrow = T,
+                   transitionMatrix = pagoMatrix, name = "pago")
+  }
+  
+  return(mcPago)
+  
+}
+
+
+
 
 rate.m <- 0.027
 rate.d <- (1+rate.m)^(1/30)-1
-#TODO DEBE EXPLICARSE! TODAS LAS DEFINICIONES!!
-#INCLUIR CASO DONDE EL CLIENTE SE LLEVE A CARTERA NO RECUPERABLE DESPUES DE K MESES DE NO PAGO
-#INCLUIR INTERESES DE MORA Y SI ES EL CASO ACUMULARLOS
-calculate_saldo <- function(exposicion,segmento,umbral=3){
+
+
+calculate_saldo <- function(exposicion,segmento,n.deuda,umbral=3){
   
   seg = segmento
   plazo = sample(plazos,1)
   rate_column = paste("X",seg,sep="")
   rate = sample(rates[,rate_column],1)
+  mcPago <- matrix.pago(n.deuda)
   flag = as.integer(markovchain::rmarkovchain(n = plazo, 
-                                 object = mcPagoo, t0 = "0"))
-  
-  # list_flag = rbern_acum( plazo , p_pago[ seg ] )
-  # flag = list_flag[[1]]
-  # p = list_flag[[2]]
+                                 object = mcPago, t0 = "0"))
   
   cuota = pago(exposicion,rate,plazo)
   cuota_acum = 0
@@ -147,8 +213,7 @@ calculate_saldo <- function(exposicion,segmento,umbral=3){
                             ,mora = c(0)
                             )
   k = 0
-  # i = 1
-  # while(amortizacion[i,"saldo"] > 1){
+
     for( i in 1:plazo){
     amortizacion_prev = amortizacion[amortizacion$periodo == (i-1)
                                      ,"saldo"] 
@@ -158,7 +223,8 @@ calculate_saldo <- function(exposicion,segmento,umbral=3){
         if(i>=2){
           
           if(flag[(i-1)] == 1){
-            dias.mora <- min(27,rnbinom(1,25,0.75))
+            dias.mora <- min(27,rgeom(1,0.4))
+            # dias.mora <- min(27,rgeom(1,1/15))
             mora <- amortizacion_prev * ((1+rate.d)^(dias.mora)-1)
             cuota = pago(amortizacion_prev + cuota_acum + mora,rate,plazo - i+1)
             interes_prev = (amortizacion_prev + cuota_acum + mora) * rate
@@ -183,8 +249,6 @@ calculate_saldo <- function(exposicion,segmento,umbral=3){
       
     }else{
       
-      # dias.mora <- min(27,rnbinom(1,25,0.75))
-      # mora <- amortizacion_prev * ((1+rate.d)^(dias.mora)-1)
       mora = 0
       if(i>=2){
         
@@ -207,27 +271,7 @@ calculate_saldo <- function(exposicion,segmento,umbral=3){
       
       cuota_acum = cuota_acum - cuota
       
-      # if(i>=umbral){
-      #   no.pagos <- sum( tail(flag[1:i],umbral) )
-      #   if(no.pagos == umbral){
-      #     reps = plazo - i + 1
-      #     data.frame(periodo = c(i:plazo)
-      #                ,saldo = c(exposicion)
-      #                ,abono = c(rep(amortizacion_prev - abono_prev,reps))
-      #                ,interes = c(0)
-      #                ,cuota = c(0)
-      #                ,nopago = c(cuota_acum)
-      #                # ,mora = c(0)
-      #     )
-      # 
-      #     
-      #   }
-      #   
-      #   
-      # }
-      
-      
-      
+  
     }
 
     amortizacion = rbind( amortizacion,
@@ -239,21 +283,10 @@ calculate_saldo <- function(exposicion,segmento,umbral=3){
                             cuota_acum,
                             mora
                             ))
-    
-    # i = i + 1
   
   }
   return(list(flag,amortizacion,plazo,rate))
 }
-
-# lista = list()
-# for(k in 1:1000){
-#   message("id is:", k)
-#   message("initial exposicion is:", format( exposicion_init[k], scientific = F))
-#   message("segmento is:", segmento[k])
-#   lista[[k]] <- calculate_saldo(exposicion_init[k],
-#                          as.integer(segmento[k]))
-# }
 
 
 calculo <- function(k){
@@ -261,18 +294,20 @@ calculo <- function(k){
   message("exposicion is:", exposicion_init[k])
   message("segmento is:", segmento[k])
   return(calculate_saldo(exposicion_init[k],
-                         as.integer(segmento[k])
+                         as.integer(segmento[k]),
+                         n.deuda[k]
                                     ))
 }
 
-
+calculo(2)
 
 calculo_data <- function(k,n=6,umbral = 3){
   message("id equal to:", k)
   message("exposicion equal to:", exposicion_init[k])
   message("segmento equal to:", segmento[k])
   list_tmp <- calculate_saldo(exposicion_init[k],
-                         as.integer(segmento[k]))
+                         as.integer(segmento[k]),
+                         n.deuda[k])
   plazo <-list_tmp[[3]]
   t0<- sample(n:(plazo-n),1)
   tf<- t0+n-1
@@ -302,28 +337,20 @@ calculo_data <- function(k,n=6,umbral = 3){
   
 }
 
+calculo_data(1)
 
 library(foreach)
 library(doParallel)
 
 
-#setup parallel backend to use many processors
 cores <- detectCores()
-cl <- makeCluster(cores[1]-1) #not to overload your computer
+cl <- makeCluster(cores[1]-1) 
 registerDoParallel(cl)
 
-# lista <- foreach(k=1:N) %dopar% {
-#   tempList = calculo(k) #calling a function
-#   #do other things if you want
-#   tempList #Equivalent to finalMatrix = list(finalMatrix, tempMatrix)
-# }
-# 
-# lista[[1]]
 
 lista_data <-foreach(k=1:N) %dopar% {
-  tempList = calculo_data(k,umbral = 4) #calling a function
-  #do other things if you want
-  tempList #Equivalent to finalMatrix = list(finalMatrix, tempMatrix)
+  tempList = calculo_data(k,umbral = 4) 
+  tempList 
 }
 
 
@@ -332,83 +359,67 @@ names(amortiza) <- c(paste("P",1:6,sep=""),
                      "exposicion","flag_npago","pagos","t0")
 
 
-#impagos mas recientes tienen mas pesos
-# b0 <- 50
-# b1 <-  1/ c(pesos %*% factores)
-# b2 <- (- 1/ c(pesos %*% factores)) / (2/(2+5))
-# b3 <- (( 1/ c(pesos %*% factores)) / (2/(2+5) ) ) / 4/10
-# i1 <- -1
-# i2 <- -1.5
-# i3 <- -2.5
-# i4 <- -2
-# i5 <- -2.5
-# i6 <- -3
-# b4 <- ((- 1/ c(pesos %*% factores)) / (4/(4+2))) / 1/10
+write.csv(amortiza,'amortiza.csv',row.names = FALSE)
+amortiza =read.csv('amortiza.csv')
 
-b0 <- 7
-b1 <- -1 #Nivel de endeudamiento
-b2 <- 4/50 #ROE
-b3 <- 4/50 #ROA
-b4 <- -10 #FACTOR K NO PAGOS
-
-b5 <-  1/ c(pesos %*% factores) * 1 /5000
-b6 <- (- 1/ c(pesos %*% factores)) * (5/(5+4)) * 1 / 40
-b7 <- (( 1/ c(pesos %*% factores)) / (4/(5+4)))  / (5/(5+5))  * 1/5000
-
-
-i1 <- -2/5
-i2 <- -2/5
-i3 <- -3/5
-i4 <- -4/5
-i5 <- -5/5
-i6 <- -6/5
+b0 <- -5
+b1 <- 0.25 #Nivel de endeudamiento
+b2 <- -3 #ROE
+b3 <- -3 #ROA
+b4 <- 7 #FACTOR K NO PAGOS
+i1 <- 0.3
+i2 <- 0.3
+i3 <- 0.5
+i4 <- 0.5
+i5 <- 0.8
+i6 <- 0.8
 
 
 betas = rbind(b0,b1,b2,b3,b4,
-              b5,b6,b7,
-              i1,i2,i3,i4,i5,i6
-              )
+              i1,i2,i3,i4,i5,i6)
 betas
 
 X = data.frame(X0=1,X1=n.deuda,X2=roe,X3=roa,X4=amortiza$flag_npago,
-               X5=activos,X6=pasivos,X7=ebitda,
                I1=amortiza$P1,I2=amortiza$P2,I3=amortiza$P3,I4=amortiza$P4,
                I5=amortiza$P5,I6=amortiza$P6)
-hist(X$X1*b1)
-hist(X$X2*b2)
-hist(X$X3*b3)
-hist(X$X4*b4)
 
 eta <-  (as.matrix(X) %*% betas)
 X$eta <- eta
 hist(eta)
-logit_eta <- 1 / (1 + exp(  (eta) ) )
+
+logit_eta <- 1 / (1 + exp(  -(eta) ) )
 hist(logit_eta)
-summary(logit_eta)
-
-head(logit_eta)
+length(logit_eta[logit_eta>0.4 & logit_eta<0.9])
+boxplot(logit_eta~segmento)
 X$logit_eta <- logit_eta
+fi = 0.5
+  par(mfrow=c(5,5))
+  dev.off()
+  p.v <- seq(0,1,by=0.1)
+  p.lines = c(0.2,0.4,0.5,0.6,0.8)
+  for (i in p.v){
+    plot(density(rbeta(N,i,fi)),main = paste("mu equal to ",i,sep=""))
+    abline(v=qbeta(p.lines,i,fi),col=2,lty=2)
+  }
 
-head(X[X$logit_eta<0.01,])
-
-fi = 0.2
 prob=double(N)
 
 for (i in 1:N) {
-  # prob[i] = rbeta(1,shape1 = logit_eta[i],shape=fi)
-  prob[i] = qbeta(0.5,shape1 = logit_eta[i],shape=fi)
+
+  prob[i] = rbeta(1,shape1 = logit_eta[i],shape2=fi)
+
 }
 
+X$p <- prob
+X$segmento <- segmento
+boxplot(prob~segmento)
 
-segmento_ne_1 <- segmento != "1"
-boxplot(prob~segmento
-        ,ylim=c(0,0.00000000000000000000000000000000005)
-        )
+abline(h=0.6,col=2,lty=2)
 hist(prob)
-
-boxplot(prob[segmento_ne_1]~segmento[segmento_ne_1],
-        ylim=c(0,0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000001))
+tapply(prob,segmento,mean)
 
 y = ifelse( prob > 0.7, 1, 0)
-summary(as.factor(y))
+X$y <- y
 
+
+write.csv(X,file="data.csv",row.names = FALSE)
