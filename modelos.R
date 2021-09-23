@@ -129,15 +129,31 @@ results.train$y = y
 write.csv(results.train,'train_predict.csv',row.names = FALSE)
 results.train = read.csv("train_predict.csv")
 
-library(cutpointr)
-library(doRNG)
-library(Epi)
-library(Rcpp)
 
-cut.rf <- Epi::ROC(form=results.train$y ~ results.train$y_svm, 
-                   plot="ROC",
-                   data=results.train,
-                   main="ROC with Epi package", 
-                   MI=TRUE, MX=TRUE, PV=TRUE)
+library(ROCit)
 
-cutpointr(results.train, y_svm, y)
+measures <- function(x){
+  rocit_obj <- rocit(score=x,class=results.train$y)
+  measures_obj <-  measureit(rocit_obj,
+                                        measure=c("ACC", "SENS", "FSCR"))
+  df <- data.frame(ACC = measures_obj$ACC,
+                   SENS = measures_obj$SENS,
+                   FSCR = measures_obj$FSCR)
+  max_acc <- max(df$ACC)
+  return(list(df,df[df$ACC == max_acc,]))
+}
+
+a <-measures(results.train$y_rf)
+
+calcula_matrix_confusion <- function(x,p){
+  y.hat = factor(ifelse(x > p,1,0))
+  y = factor(results.train$y)
+  levels(y) <- c(0,1)
+  
+    return(confusionMatrix(y,y.hat))
+}
+
+calcula_matrix_confusion(results.train$y_rf,0.668)
+calcula_matrix_confusion(results.train$y_knn,0.42857)
+calcula_matrix_confusion(results.train$y_knn_boot,0.333)
+calcula_matrix_confusion(results.train$y_svm,0.00767)
