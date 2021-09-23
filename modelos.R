@@ -143,7 +143,10 @@ measures <- function(x){
   return(list(df,df[df$ACC == max_acc,]))
 }
 
-a <-measures(results.train$y_rf)
+measures(results.train$y_rf)
+measures(results.train$y_knn)
+measures(results.train$y_knn_boot)
+measures(results.train$y_svm)
 
 calcula_matrix_confusion <- function(x,p){
   y.hat = factor(ifelse(x > p,1,0))
