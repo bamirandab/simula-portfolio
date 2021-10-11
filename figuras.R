@@ -1,4 +1,4 @@
-fig.path = 'C:/Users/bryan/OneDrive - Universidad Nacional de Colombia/MAESTRIA/TESIS/DOCUMENTO FINAL/figs'
+fig.path = 'C:/Users/bryan/OneDrive - Universidad Nacional de Colombia/MAESTRIA/TESIS/DOCUMENTO FINAL/tesis/figs'
 setwd(fig.path)
 
 library(ggplot2)
@@ -12,8 +12,8 @@ print.fig <-function(plot,path=fig.path,name,w=500,h=350){
 
 
 #cluster 
-cluster.plot<-ggplot(data=data.frame('Cluster'=segmento),aes(x=Cluster,col=Cluster))+
-  geom_bar(fill='white')+  
+cluster.plot<-ggplot(data=data.frame(Cluster=amortiza$C),aes(x=Cluster,colour=Cluster))+
+  geom_bar()+  
   theme(axis.text=element_text(size=10),
         axis.title=element_text(size=20,face="bold"))+
   geom_text(stat='count', aes(x = Cluster, label = ..count..), vjust = -1)+
@@ -61,9 +61,9 @@ pp_pasivos.plot <- ggplot(data=pasivos.df) +
         axis.title=element_text(size=15,face="bold"))+ylab("Frecuencia")+xlab('')+
   scale_color_discrete(name = "Variable",
                        labels = c(expression(paste(L^"*")),
-                                  expression(paste(L[3]^"*","  con  ",alpha," = 9","  ",beta," = 6",sep="")),
-                                  expression(paste(L[1]^"*","  con  ",alpha," = 2","  ",beta," = 6",sep="")),
-                                  expression(paste(L[2]^"*","  con  ",alpha," = 4","  ",beta," = 6",sep=""))))+
+                                  expression(paste(L[3]^"*",sep="")),
+                                  expression(paste(L[1]^"*",sep="")),
+                                  expression(paste(L[2]^"*",sep=""))))+
   geom_vline(xintercept =c(0.1,0.8),linetype="dotted",size=1)
 
 pasivos.line.plot <- ggplot(data=data.frame(x=density(pasivos)$x,y=density(pasivos)$y),aes(x=x,y=y))+
@@ -96,9 +96,9 @@ ebitda.d.plot <- ggplot(data=ebitda.df) +
         axis.title=element_text(size=15,face="bold"))+ylab("Frecuencia")+xlab('')+
   scale_color_discrete(name = "Variable",
                        labels = c(expression(V^"*"),
-                                  expression(paste(V[3]^"*","  con  ",alpha," = 1","  ",beta," = 5",sep="")),
-                                  expression(paste(V[1]^"*","  con  ",alpha," = 2","  ",beta," = 5",sep="")),
-                                  expression(paste(V[2]^"*","  con  ",alpha," = 1.5","  ",beta," = 5",sep=""))))+
+                                  expression(paste(V[3]^"*",sep="")),
+                                  expression(paste(V[1]^"*",sep="")),
+                                  expression(paste(V[2]^"*",sep=""))))+
   geom_vline(xintercept =c(0.01,0.3),linetype="dotted",size=1)
 
 
@@ -129,9 +129,9 @@ exp.d.plot <- ggplot(data=exposicion.df) +
         axis.title=element_text(size=15,face="bold"))+ylab("Frecuencia")+xlab('')+
   scale_color_discrete(name = "Variable",
                        labels = c(expression(EI^"*"),
-                                  expression(paste(EI[3]^"*","  con  ",alpha," = 2","  ",beta," = 4",sep="")),
-                                  expression(paste(EI[1]^"*","  con  ",alpha," = 6","  ",beta," = 4",sep="")),
-                                  expression(paste(EI[2]^"*","  con  ",alpha," = 4","  ",beta," = 4",sep=""))))+
+                                  expression(paste(EI[3]^"*",sep="")),
+                                  expression(paste(EI[1]^"*",sep="")),
+                                  expression(paste(EI[2]^"*",sep=""))))+
   geom_vline(xintercept =c(0.2,0.8),linetype="dotted",size=1)
 
 exp.l.plot <- ggplot(data=data.frame(x=density(exposicion_init)$x,y=density(exposicion_init)$y),aes(x=x,y=y))+
@@ -225,26 +225,8 @@ lines(cbind(c(0,1),c(0,1)),col="gray")
 legend("bottomright",legend=c("RandomForest", "KNN","KNN-Boot","SVM", "Linea de Oportunidad"),
        col=c("black","red","blue","green","gray"), lty=c(1,2,2,2,1),cex=0.8,lwd=c(2,2,2,2,1))
 
-y.test = test$y
-levels(y.test) <- c(0,1)
 
-# Plot:
-roc.rf <- prediction( test.rf[,2], y.test )
-roc.knn <- prediction( test.knn[,2], y.test )
-roc.knn_boot <- prediction( test.knn_boot[,2], y.test)
-roc.svm <- prediction( test.SVML[,2], y.test)
 
-perf.rf <- performance( roc.rf, "tpr", "fpr" )
-perf.knn <- performance(roc.knn, "tpr", "fpr")
-perf.knn_boot <- performance(roc.knn_boot, "tpr", "fpr")
-perf.svm <- performance(roc.svm, "tpr", "fpr")
-
-roc.test.plot <- plot(perf.rf,main="Curva ROC data de prueba",lwd=2)
-plot(perf.knn, add=TRUE, col='red',lty=2,lwd=2)
-plot(perf.knn_boot, add=TRUE, col='blue',lty=2,lwd=2)
-plot(perf.svm, add=TRUE, col='green',lty=2,lwd=2)
-legend("bottomright",legend=c("RF", "KNN","KNN-Boot","SVM"),
-       col=c("black","red","blue","green"), lty=c(1,2,2,2),cex=0.8,lwd=2)
 # Histograma y
 
 hist(prob)
@@ -259,7 +241,7 @@ print.fig(p.plot,name="p.png")
 
 
 
-#Figura
+#Y
 levels( df$y ) <- c(0,1)
 y.plot <- ggplot2::ggplot(df,aes(x=y))+
   geom_bar()
@@ -270,3 +252,32 @@ y.plot.final <- egg::ggarrange(p.plot,
                y.plot,widths=c(2,1))
 
 print.fig(y.plot.final,name="y_final.png",w=700,h=350)
+
+#Y.hat
+
+y.hat <- results.train$y_svm
+Y.hat <- ifelse(results.train$y_rf >0.668,1,0)
+
+df.hat <- data.frame(Y=Y.hat, y.hat = y.hat)
+
+p.plot <- ggplot2::ggplot(df.hat,aes(x=y.hat))+
+  geom_histogram(bins=20)+
+  xlab(expression(hat(y)[j]))
+y.plot <- ggplot2::ggplot(df.hat,aes(x=Y))+
+  geom_bar()+
+  xlab(expression(hat(Y)))
+
+
+y.plot.final <- egg::ggarrange(p.plot,
+                               y.plot,widths=c(2,1))
+
+print.fig(y.plot.final,name="y_hat_final.png",w=700,h=350)
+
+#S
+
+S <- data.frame(S = results.train$y_svm * amortiza$exposicion,Cluster = factor(amortiza$C))
+
+S.plot <- ggplot(data=S,aes(x=S,fill=Cluster))+
+            geom_histogram(bins =20)
+
+print.fig(S.plot,name="S.png")

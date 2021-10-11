@@ -1,5 +1,5 @@
-fig.path = 'C:/Users/bryan/OneDrive - Universidad Nacional de Colombia/MAESTRIA/TESIS/DOCUMENTO FINAL/figs'
-setwd('C:/Users/bryan/OneDrive - Universidad Nacional de Colombia/MAESTRIA/TESIS/DOCUMENTO FINAL/')
+fig.path = 'C:/Users/bryan/OneDrive - Universidad Nacional de Colombia/MAESTRIA/TESIS/DOCUMENTO FINAL/tesis/figs'
+setwd('C:/Users/bryan/OneDrive - Universidad Nacional de Colombia/MAESTRIA/TESIS/DOCUMENTO FINAL/tesis/')
 
 library(truncdist)
 library(markovchain)
@@ -21,13 +21,6 @@ b=0.3
 c=1-a-b
 pesos = c(a,b,c)
 
-
-print.fig <-function(plot,path,name,w,h){
-  path.name <- paste(path,name,sep="/")
-  png(path.name,width = w, height = h)
-  print(plot)
-  dev.off()
-}
 
 clst <- function(x, a = pesos[1],b = pesos[2]){
   
@@ -60,10 +53,7 @@ pp_beta <- function(segmento,betas,min,max){
   a <- betas[seg,1]
   b <- betas[seg,2]
   
-  q.min <- pbeta(min,a,b,lower.tail=TRUE)
-  q.max <- pbeta(max,a,b,lower.tail=TRUE)
-  
-  r <- truncdist::rtrunc(1,"beta",a=q.min,b=q.max,shape1=a,shape2=b)
+  r <- truncdist::rtrunc(1,"beta",a=min,b=max,shape1=a,shape2=b)
   return(r)
   
 }
@@ -358,7 +348,7 @@ amortiza <- data.frame(matrix(unlist(lapply(lista_data,unlist)), ncol=10, byrow=
 names(amortiza) <- c(paste("P",1:6,sep=""),
                      "exposicion","flag_npago","pagos","t0")
 
-
+amortiza$C <- segmento
 write.csv(amortiza,'amortiza.csv',row.names = FALSE)
 amortiza =read.csv('amortiza.csv')
 

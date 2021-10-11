@@ -2,7 +2,7 @@
 library(randomForest)
 library(caret)
 
-path='C:/Users/bryan/OneDrive - Universidad Nacional de Colombia/MAESTRIA/TESIS/DOCUMENTO FINAL/'
+path='C:/Users/bryan/OneDrive - Universidad Nacional de Colombia/MAESTRIA/TESIS/DOCUMENTO FINAL/tesis/'
 setwd(path)
 
 #Paralelizacion
@@ -127,36 +127,6 @@ results.train <- data.frame(
 results.train$y = y
 
 write.csv(results.train,'train_predict.csv',row.names = FALSE)
-results.train = read.csv("train_predict.csv")
 
 
-library(ROCit)
 
-measures <- function(x){
-  rocit_obj <- rocit(score=x,class=results.train$y)
-  measures_obj <-  measureit(rocit_obj,
-                                        measure=c("ACC", "SENS", "FSCR"))
-  df <- data.frame(ACC = measures_obj$ACC,
-                   SENS = measures_obj$SENS,
-                   FSCR = measures_obj$FSCR)
-  max_acc <- max(df$ACC)
-  return(list(df,df[df$ACC == max_acc,]))
-}
-
-measures(results.train$y_rf)
-measures(results.train$y_knn)
-measures(results.train$y_knn_boot)
-measures(results.train$y_svm)
-
-calcula_matrix_confusion <- function(x,p){
-  y.hat = factor(ifelse(x > p,1,0))
-  y = factor(results.train$y)
-  levels(y) <- c(0,1)
-  
-    return(confusionMatrix(y,y.hat))
-}
-
-calcula_matrix_confusion(results.train$y_rf,0.668)
-calcula_matrix_confusion(results.train$y_knn,0.42857)
-calcula_matrix_confusion(results.train$y_knn_boot,0.333)
-calcula_matrix_confusion(results.train$y_svm,0.00767)
