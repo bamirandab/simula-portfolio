@@ -1,9 +1,17 @@
 
 path='C:/Users/bryan/OneDrive - Universidad Nacional de Colombia/MAESTRIA/TESIS/DOCUMENTO FINAL/tesis/'
+fig.path = 'C:/Users/bryan/OneDrive - Universidad Nacional de Colombia/MAESTRIA/TESIS/DOCUMENTO FINAL/tesis/figs'
 setwd(path)
 
 results.train = read.csv("train_predict.csv")
 amortiza =read.csv('amortiza.csv')
+
+print.fig <-function(plot,path=fig.path,name,w=500,h=350){
+  path.name <- paste(path,name,sep="/")
+  png(path.name,width = w, height = h)
+  print(plot)
+  dev.off()
+}
 
 
 library(pROC)
@@ -49,12 +57,16 @@ metricas <- data.frame( Modelo = c("RF", "KNN", "b-NN","SVM"),
                                 auc.model(results.train$y_knn),
                                 auc.model(results.train$y_knn_boot),
                                 auc.model(results.train$y_svm)),
-                        P_0 = c(m.rf[[2]]$p0, m.knn[[2]]$p0, m.knn_b[[2]]$p0, m.svm[[2]]$p0[1]),
-                        ACC = c(m.rf[[2]]$ACC, m.knn[[2]]$ACC, m.knn_b[[2]]$ACC, m.svm[[2]]$ACC[1]),
-                        SENS = c(m.rf[[2]]$SENS, m.knn[[2]]$SENS, m.knn_b[[2]]$SENS, m.svm[[2]]$SENS[1]),
-                        FSCR = c(m.rf[[2]]$FSCR, m.knn[[2]]$FSCR, m.knn_b[[2]]$FSCR, m.svm[[2]]$FSCR[1])
-)
+                        P_0 = c(m.rf[[2]]$p0, m.knn[[2]]$p0, 
+                                m.knn_b[[2]]$p0, m.svm[[2]]$p0[1]),
+                        ACC = c(m.rf[[2]]$ACC, m.knn[[2]]$ACC,
+                                m.knn_b[[2]]$ACC, m.svm[[2]]$ACC[1]),
+                        SENS = c(m.rf[[2]]$SENS, m.knn[[2]]$SENS, 
+                                 m.knn_b[[2]]$SENS, m.svm[[2]]$SENS[1]),
+                        FSCR = c(m.rf[[2]]$FSCR, m.knn[[2]]$FSCR, 
+                                 m.knn_b[[2]]$FSCR, m.svm[[2]]$FSCR[1]))
 
+#Metricas
 xtable(metricas,digits = 5)
 
 calcula_matrix_confusion <- function(x,p){
@@ -65,12 +77,13 @@ calcula_matrix_confusion <- function(x,p){
   return(confusionMatrix(y,y.hat))
 }
 
+#Matriz de confusion
 calcula_matrix_confusion(results.train$y_rf,0.668)
 calcula_matrix_confusion(results.train$y_knn,0.42857)
 calcula_matrix_confusion(results.train$y_knn_boot,0.333)
 calcula_matrix_confusion(results.train$y_svm,0.00767)
 
-
+#Estimacion S
 library(actuar)
 library(ggplot2)
 LPcumul = function(lj,Fj){
@@ -107,44 +120,94 @@ np.aprox.pdf = function(x,Skj){
 }
 
 s.plot.function <- function(x){
-  S <- data.frame(lj = x, Fj = amortiza$exposicion,Cluster = factor(amortiza$C))
+  
+  S <- data.frame(lj = x, 
+                  Fj = amortiza$exposicion)
   S$Fj <- S$Fj /1.0e+06
   
-  library(actuar)
   Skj = LPcumul(S$lj,S$Fj)
   
   Fs = aggregateDist("npower",moments = Skj)
   var.x <- actuar::VaR(Fs)
   
-  f = function(x){np.aprox.pdf(x,Skj)}
-  C = integrate(f, lower = 0, upper = Inf, 
+  f = function(x){np.aprox(x,Skj)}
+  C = integrate(f, lower = 0, upper = 10000, 
                 stop.on.error = FALSE)$value
   
   xe = seq(0,Skj[1]+8*sqrt(Skj[2]))
   fGa.np=np.aprox.pdf(xe,Skj)
-  
-  s.plot <- ggplot(data.frame(y=fGa.np/C,x=xe),aes(x=x,y=y))+
+  S.df <- data.frame(y=fGa.np/C,x=xe)
+  s.plot <- ggplot(S.df,aes(x=x,y=y))+
     geom_area(colour="black",alpha=0.6,lwd=1)
-  
   return(list(s.plot,var.x))
   
 }
 
-S.svm <- s.plot.function(results.train$y_svm)
-S.svm.plot <- S.svm[[1]]+
-  xlim(c(200,270))
 
 
+var.calculate <- function(x,r){
+  
+  var.vector <- double(length = length(r))
+  j <- 1
+  for (i in r){
+    Y.hat <- ifelse(x>i,1,0)
+    var.vector[j] <- s.plot.function(Y.hat)[[2]]
+    j <- j + 1
+  }
+  return(var.vector)
+}
+
+
+########SVM##########
+Y.svm <- ifelse(results.train$y_svm>0.53416,1,0)
+S.svm <- s.plot.function(Y.svm)
+S.svm.plot <- S.svm[[1]]+  
+  xlim(c(375,440))
+print.fig(S.svm.plot,name="S_svm.png")
+
+cutoff.range <- seq(0.01,0.99,0.01)
+
+j <- 1
+for (i in cutoff.range){
+  Y.hat <- ifelse(results.train$y_svm>i,1,0)
+  var.SVM[j] <- s.plot.function(Y.hat)[[2]]
+  j <- j + 1
+}
+
+ggplot(data = data.frame("CutOff"=cutoff.range,"VaR"=var.SVM),aes(x=CutOff,y=VaR))+
+  geom_point(size=2,shape=3)+
+  xlim(c(0,0.53416))
+  
+
+########RF##########
 S.rf <- s.plot.function(results.train$y_rf)
 S.rf.plot <- S.rf[[1]]+
   xlim(c(350,425))
+print.fig(S.svm.plot,name="S_rf.png")
 
+var.RF <- var.calculate(results.train$y_rf,cutoff.range)
 
+ggplot(data = data.frame("CutOff"=cutoff.range,"VaR"=var.RF),aes(x=CutOff,y=VaR))+
+  geom_point(size=2,shape=3)
+
+########KNN##########
 S.knn <- s.plot.function(results.train$y_knn)
 S.knn.plot <- S.knn[[1]]+
   xlim(c(220,270))
+print.fig(S.svm.plot,name="S_knn.png")
 
+var.knn <- var.calculate(results.train$y_knn,cutoff.range)
 
+ggplot(data = data.frame("CutOff"=cutoff.range,"VaR"=var.knn),aes(x=CutOff,y=VaR))+
+  geom_point(size=2,shape=3)
+
+########BNN##########
 S.knn_b <- s.plot.function(results.train$y_knn_boot)
 S.knn_b.plot <- S.knn_b[[1]]+
   xlim(c(220,270))
+print.fig(S.svm.plot,name="S_bnn.png")
+
+var.bnn <- var.calculate(results.train$y_knn_boot,cutoff.range)
+
+ggplot(data = data.frame("CutOff"=cutoff.range,"VaR"=var.bnn),aes(x=CutOff,y=VaR))+
+  geom_point(size=2,shape=3)

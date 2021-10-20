@@ -273,11 +273,3 @@ y.plot.final <- egg::ggarrange(p.plot,
 
 print.fig(y.plot.final,name="y_hat_final.png",w=700,h=350)
 
-#S
-
-S <- data.frame(S = results.train$y_svm * amortiza$exposicion,Cluster = factor(amortiza$C))
-
-S.plot <- ggplot(data=S,aes(x=S,fill=Cluster))+
-            geom_histogram(bins =20)
-
-print.fig(S.plot,name="S.png")
