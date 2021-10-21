@@ -151,7 +151,7 @@ var.calculate <- function(x,r){
   j <- 1
   for (i in r){
     Y.hat <- ifelse(x>i,1,0)
-    var.vector[j] <- s.plot.function(Y.hat)[[2]]
+    var.vector[j] <- s.plot.function(Y.hat)[[2]][3]
     j <- j + 1
   }
   return(var.vector)
@@ -161,16 +161,19 @@ var.calculate <- function(x,r){
 ########SVM##########
 Y.svm <- ifelse(results.train$y_svm>0.53416,1,0)
 S.svm <- s.plot.function(Y.svm)
+
 S.svm.plot <- S.svm[[1]]+  
   xlim(c(375,440))
 print.fig(S.svm.plot,name="S_svm.png")
 
-cutoff.range <- seq(0.01,0.99,0.01)
 
+
+cutoff.range <- seq(0.01,0.99,0.01)
+var.SVM <- double(length(cutoff.range))
 j <- 1
 for (i in cutoff.range){
   Y.hat <- ifelse(results.train$y_svm>i,1,0)
-  var.SVM[j] <- s.plot.function(Y.hat)[[2]]
+  var.SVM[j] <- s.plot.function(Y.hat)[[2]][3]
   j <- j + 1
 }
 
