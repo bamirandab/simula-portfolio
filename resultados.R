@@ -167,7 +167,6 @@ S.svm.plot <- S.svm[[1]]+
 print.fig(S.svm.plot,name="S_svm.png")
 
 
-
 cutoff.range <- seq(0.01,0.99,0.01)
 var.SVM <- double(length(cutoff.range))
 j <- 1
@@ -177,27 +176,41 @@ for (i in cutoff.range){
   j <- j + 1
 }
 
-ggplot(data = data.frame("CutOff"=cutoff.range,"VaR"=var.SVM),aes(x=CutOff,y=VaR))+
-  geom_point(size=2,shape=3)+
-  xlim(c(0,0.53416))
-  
+var.SVM.plot <- ggplot(data = data.frame("CutOff"=cutoff.range,"VaR"=var.SVM),aes(x=CutOff,y=VaR))+
+                geom_point(size=2,shape=3)+
+                xlim(c(0,0.53416))+
+                ylab("VaR (miles de millones de pesos)")
+
+print.fig(var.SVM.plot,name="var_svm.png")
 
 ########RF##########
-S.rf <- s.plot.function(results.train$y_rf)
+Y.rf <- ifelse(results.train$y_rf>0.714,1,0)
+S.rf <- s.plot.function(Y.rf)
 S.rf.plot <- S.rf[[1]]+
   xlim(c(350,425))
-print.fig(S.svm.plot,name="S_rf.png")
+print.fig(S.rf.plot,name="S_rf.png")
 
 var.RF <- var.calculate(results.train$y_rf,cutoff.range)
 
-ggplot(data = data.frame("CutOff"=cutoff.range,"VaR"=var.RF),aes(x=CutOff,y=VaR))+
-  geom_point(size=2,shape=3)
+var.RF.plot<- ggplot(data = data.frame("CutOff"=cutoff.range,"VaR"=var.RF),aes(x=CutOff,y=VaR))+
+              geom_point(size=2,shape=3)+
+              ylab("VaR (miles de millones de pesos)")+
+              theme(legend.position = c(0.8, 0.2))+
+              geom_hline(aes(yintercept =  423.88965,linetype = "423.88"),colour="red")+
+              scale_linetype_manual(name = "", values = c(2), 
+                    guide = guide_legend(override.aes = list(color = c("red"))))
+  
+              # legend("topright",legend=c("423.88"),col=c("red"))
+
+print.fig(var.RF.plot,name="var_rf.png")
 
 ########KNN##########
-S.knn <- s.plot.function(results.train$y_knn)
+
+Y.knn <- ifelse(results.train$y_knn>0.42857,1,0)
+S.knn <- s.plot.function(Y.knn)
 S.knn.plot <- S.knn[[1]]+
-  xlim(c(220,270))
-print.fig(S.svm.plot,name="S_knn.png")
+  xlim(c(300,380))
+print.fig(S.knn.plot,name="S_knn.png")
 
 var.knn <- var.calculate(results.train$y_knn,cutoff.range)
 
@@ -205,12 +218,23 @@ ggplot(data = data.frame("CutOff"=cutoff.range,"VaR"=var.knn),aes(x=CutOff,y=VaR
   geom_point(size=2,shape=3)
 
 ########BNN##########
-S.knn_b <- s.plot.function(results.train$y_knn_boot)
+Y.knn_b <- ifelse(results.train$y_knn_boot>0.3333,1,0)
+S.knn_b <- s.plot.function(Y.knn_b)
 S.knn_b.plot <- S.knn_b[[1]]+
-  xlim(c(220,270))
-print.fig(S.svm.plot,name="S_bnn.png")
+  xlim(c(350,420))
+print.fig(S.knn_b.plot,name="S_bnn.png")
 
 var.bnn <- var.calculate(results.train$y_knn_boot,cutoff.range)
 
 ggplot(data = data.frame("CutOff"=cutoff.range,"VaR"=var.bnn),aes(x=CutOff,y=VaR))+
   geom_point(size=2,shape=3)
+
+
+
+###VaR resumen
+library(xtable)
+VaR.models <- rbind(S.svm[[2]],S.rf[[2]],
+                S.knn[[2]],S.knn_b[[2]])
+rownames(VaR.models) <- c("SVM","RF","KNN","BNN")
+
+xtable(VaR.models)
