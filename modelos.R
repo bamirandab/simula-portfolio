@@ -2,7 +2,7 @@
 library(randomForest)
 library(caret)
 
-path='C:/Users/bryan/OneDrive - Universidad Nacional de Colombia/MAESTRIA/TESIS/DOCUMENTO FINAL/'
+path='C:/Users/bryan/OneDrive - Universidad Nacional de Colombia/MAESTRIA/TESIS/DOCUMENTO FINAL/tesis/'
 setwd(path)
 
 #Paralelizacion
@@ -127,17 +127,6 @@ results.train <- data.frame(
 results.train$y = y
 
 write.csv(results.train,'train_predict.csv',row.names = FALSE)
-results.train = read.csv("train_predict.csv")
 
-library(cutpointr)
-library(doRNG)
-library(Epi)
-library(Rcpp)
 
-cut.rf <- Epi::ROC(form=results.train$y ~ results.train$y_svm, 
-                   plot="ROC",
-                   data=results.train,
-                   main="ROC with Epi package", 
-                   MI=TRUE, MX=TRUE, PV=TRUE)
 
-cutpointr(results.train, y_svm, y)
