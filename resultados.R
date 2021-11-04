@@ -214,9 +214,10 @@ print.fig(S.knn.plot,name="S_knn.png")
 
 var.knn <- var.calculate(results.train$y_knn,cutoff.range)
 
-ggplot(data = data.frame("CutOff"=cutoff.range,"VaR"=var.knn),aes(x=CutOff,y=VaR))+
-  geom_point(size=2,shape=3)
-
+var.KNN.plot <- ggplot(data = data.frame("CutOff"=cutoff.range,"VaR"=var.knn),aes(x=CutOff,y=VaR))+
+  geom_point(size=2,shape=3)+
+  ylab("VaR (miles de millones de pesos)")
+print.fig(var.KNN.plot,name="var_knn.png")
 ########BNN##########
 Y.knn_b <- ifelse(results.train$y_knn_boot>0.3333,1,0)
 S.knn_b <- s.plot.function(Y.knn_b)
@@ -226,8 +227,10 @@ print.fig(S.knn_b.plot,name="S_bnn.png")
 
 var.bnn <- var.calculate(results.train$y_knn_boot,cutoff.range)
 
-ggplot(data = data.frame("CutOff"=cutoff.range,"VaR"=var.bnn),aes(x=CutOff,y=VaR))+
-  geom_point(size=2,shape=3)
+var.BNN.plot<- ggplot(data = data.frame("CutOff"=cutoff.range,"VaR"=var.bnn),aes(x=CutOff,y=VaR))+
+  geom_point(size=2,shape=3)+
+  ylab("VaR (miles de millones de pesos)")
+print.fig(var.BNN.plot,name="var_bnn.png")
 
 
 
